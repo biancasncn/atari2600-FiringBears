@@ -18,17 +18,17 @@ BEAR_FP1        equ #15                ; Number of frames in the bear animation 
                 org $80                ; origin set at base of ram
 
 p0_y            .byte                   ; 1 byte - player 0 y pos
-p1_y            .byte                   ; 1 byte - player 1 y pos
-p0_x            .byte                   ; 1 byte - player 0 x pos
-p1_x            .byte                   ; 1 byte - player 1 x pos
-tp0_y           .byte                   ; 1 byte - temporary player 0 y pos
-tp1_y           .byte                   ; 1 byte - temporary player 1 y pos
-scanline        .byte                   ; 1 byte - current scanline
+p1_y            .byte                   ; player 1 y pos
+p0_x            .byte                   ; player 0 x pos
+p1_x            .byte                   ; player 1 x pos
+tp0_y           .byte                   ; temporary player 0 y pos
+tp1_y           .byte                   ; temporary player 1 y pos
+scanline        .byte                   ; current scanline
 
 bear_frameP0    .byte                   ; current frame of bear animation
 bear_frameP1    .byte 
-bearPtrP0       ds 2
-bearPtrP1       ds 2
+bearPtrP0       ds 2			; 2 bytes
+bearPtrP1       ds 2			
 
                 seg main               ; start of main segment
                 org $F000
@@ -164,7 +164,7 @@ overscan        sta WSYNC
 ; -- set horizontal position (a = X position, x = 0-1 player, 2-3 missiles, 4 ball)
 setHorizPos     sta WSYNC              ; start a new line
                 sec                    ; set carry flag
-.divLoop         sbc #15                ; subtract 15
+.divLoop      	sbc #15                ; subtract 15
                 bcs .divLoop            ; branch until negative
                 eor #7                 ; calculate fine offset
                 asl                    ; 
@@ -175,10 +175,10 @@ setHorizPos     sta WSYNC              ; start a new line
                 sta HMP0,x             ; set fine offset
                	rts                    ; return to caller
 
-bear_pLSB:     	.byte <bear_f0         ; LSB
+bear_pLSB     	.byte <bear_f0         ; LSB
               	.byte <bear_f1
 
-bear_pMSB:     	.byte >bear_f0         ; MSB
+bear_pMSB     	.byte >bear_f0         ; MSB
 		.byte >bear_f1
                 
 ; Read joystick movement and apply to object 0
