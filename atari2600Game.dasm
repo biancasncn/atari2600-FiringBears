@@ -4,10 +4,9 @@
                 include "macro.h"
                 include "xmacro.h"
 
-                ; NTSC 262 scanlines 60 Hz, PAL 312 scanlines 50Hz
 PF_H            equ #192               ; playfield height
 OS_H            equ #30                ; overscan height
-VB_H            equ #33                ; vertical blank height 
+VB_H            equ #30                ; vertical blank height 
 
 BEAR_H          equ #15                ; bear sprite height
 BEAR_F          equ #15                ; Number of frames in the bear animation 0, set to 15 and 3xlsr for faster 
@@ -30,11 +29,11 @@ bear_frame      .byte                   ; current frame of bear animation
 bearPtrP0       ds 2			; 2 bytes, points at which frame 
 bearPtrP1       ds 2			
 
-                seg main               ; start of main segment
+                seg main               
                 org $F000
 
 
-start           CLEAN_START            ; ouput: all ram registers 0
+start           CLEAN_START            
 
                 lda #$5b
                 sta COLUBK             ; set the BG color
@@ -42,16 +41,13 @@ start           CLEAN_START            ; ouput: all ram registers 0
                 lda #$ff
                 sta COLUPF             ; set the PF color
                 lda #1
-                sta CTRLPF		; MAKE SYMETTRIC (MIRROR)
+                sta CTRLPF	       ; make symetric (mirror)
 
                 lda #$76
                 sta COLUP0             ; set the P0 color
                 lda #$96
                 sta COLUP1             ; set the P1 color
                 
-                lda #1                 ; delay updating GRP0 until GRP1 is written
-                sta VDELP0             ; set vertical delay
-
                 lda #165	       ; initial y pos of p0 and p1
                 sta p0_y               
                 sta p1_y                
@@ -61,12 +57,11 @@ start           CLEAN_START            ; ouput: all ram registers 0
                 sta p1_x               ; initial x pos of p1 
                               
 
-nextFrame       VERTICAL_SYNC          ; output: a = 0
+nextFrame       VERTICAL_SYNC 
 		sta WSYNC
-                
+              
                 jsr moveJoystick
-                jsr moveJoystick1
-                
+                jsr moveJoystick1               
                 
                 lda p0_x
                 ldx #0                 ; P0
@@ -77,9 +72,8 @@ nextFrame       VERTICAL_SYNC          ; output: a = 0
                 jsr setHorizPos        ; set the initial course position of the player 1 graphic
                 
                 sta WSYNC	       ; NEED wsync and hmove, so scanline processes left/right movement correctly
-                sta HMOVE	       ; if commented out, horizontal movements will be staggered, could be what somebody is going for
-                
-                             
+                sta HMOVE	       ; if commented out, horizontal movements will be staggered                            
+                                          
                 ldx #VB_H              
 vblank          sta WSYNC            
                 dex                    ; decrement x by 1
@@ -118,40 +112,30 @@ bearDone        lda p0_y
 
                 lda #PF_H              
                 sta pf_count 
-
-                lda #0                 ; set D1 to 0 to end VBLANK
-                sta WSYNC              ; 
+                
+                lda #0
+                ;sta WSYNC
                 sta VBLANK             ; turn on the beam
 
 		ldx #0
-kernel          lda pf_count          
-                and #%11              
+kernel          ;sta WSYNC
+		lda pf_count
+                and #%111              
                 bne drawBears            
                 inx                                     
                 
 drawBears	lda #BEAR_H            ; load height of sprite
                 sec                    ; set carry flag
-                ;inc tp0_y
-                ;sbc tp0_y 
                 isb tp0_y              ; does inc tp0_y -> sbc tp0_y in one go
                 bcs .draw_p0           
                 lda #0                                   
 	
 .draw_p0        tay                    
                 lda (bearPtrP0),y      ; indirect mode bc () -> pull graphic from pointer
-                sta GRP0                 
-                
-                lda PF0_data,x         
-                sta PF0                
-                lda PF1_data,x        
-                sta PF1                
-                lda PF1_data,x         
-                sta PF2
+                sta GRP0  
                 
                 lda #BEAR_H            ; load height of sprite
                 sec     
-                ;inc tp1_y
-                ;sbc tp1_y 
                 isb tp1_y              ; increase tp1_y subtract from accumulator
                 bcs .draw_p1           
                 lda #0           
@@ -160,17 +144,25 @@ drawBears	lda #BEAR_H            ; load height of sprite
                 lda (bearPtrP1),y 
                 sta GRP1 
 		
+                lda PF0_data,x         
+                sta PF0                
+                lda PF1_data,x        
+                sta PF1                
+                lda PF2_data,x         
+                sta PF2
+                
                 dec pf_count
                 bne kernel    
 
-                sta WSYNC     ; ONLY NEED THIS ONE                                                                
+                ;sta WSYNC                                                                     
                 
 ; kernel end here
 	
-pf_end		lda #$2                ; set D1 = 1 to initiate VBLANK
+pf_end		lda #%10                
                 sta VBLANK             ; turn off the beam
+                sta WSYNC
                 
-                ldx #OS_H                                
+                ldx #30                                
 overscan        sta WSYNC             
                 dex                    
                 bne overscan           
@@ -222,14 +214,14 @@ moveJoystick
                 lda #%01000000	;Left?
                 bit SWCHA
                 bne .SkipMoveLeft
-                cpx #15
+                cpx #20
                 bcc .SkipMoveLeft
                 dex
 .SkipMoveLeft
                 lda #%10000000	;Right?
                 bit SWCHA 
                 bne .SkipMoveRight
-                cpx #160
+                cpx #150
                 bcs .SkipMoveRight
                 inx
 .SkipMoveRight
@@ -258,14 +250,14 @@ moveJoystick1
                 lda #%00000100	;Left?
                 bit SWCHA
                 bne .SkipMoveLeft1
-                cpx #15
+                cpx #20
                 bcc .SkipMoveLeft1
                 dex
 .SkipMoveLeft1
                 lda #%00001000	;Right?
                 bit SWCHA 
                 bne .SkipMoveRight1
-                cpx #160
+                cpx #150
                 bcs .SkipMoveRight1
                 inx
 .SkipMoveRight1
@@ -277,22 +269,23 @@ PF0_data
                  .byte #%00010000
                  .byte #%00010000		
                  .byte #%00010000
+                 .byte #%11110000
                  .byte #%00010000
                  .byte #%00010000
                  .byte #%00010000
+                 .byte #%11110000
                  .byte #%00010000
                  .byte #%00010000
                  .byte #%00010000
+                 .byte #%11110000
                  .byte #%00010000
                  .byte #%00010000
                  .byte #%00010000
+                 .byte #%11110000
                  .byte #%00010000
                  .byte #%00010000
                  .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
+                 .byte #%11110000
                  .byte #%00010000
                  .byte #%00010000
                  .byte #%00010000
@@ -300,6 +293,7 @@ PF0_data
 
 PF1_data
                  .byte #%11111111       ;<- first ALL 8 BITS
+                 .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
@@ -330,25 +324,26 @@ PF2_data
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
+                 .byte #%00000001
+                 .byte #%00000001
+                 .byte #%00000001
+                 .byte #%00000000
+                 .byte #%10000000
+                 .byte #%10000000
+                 .byte #%10000000
+                 .byte #%10000000
+                 .byte #%10000000
+                 .byte #%10000000
+                 .byte #%00000000
+                 .byte #%00000001
+                 .byte #%00000001
+                 .byte #%00000001
+                 .byte #%00000001
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%11111111       ;<- last                             
+                 .byte #%11111111       ;<- last                           
 
 bear_f0         .byte $0            
                 .byte %01000010
