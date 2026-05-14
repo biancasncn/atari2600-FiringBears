@@ -4,9 +4,9 @@
                 include "macro.h"
                 include "xmacro.h"
 
-PF_H            equ #192               ; playfield height
+PF_H            equ #92                ; playfield height - playfied data x 4
 OS_H            equ #30                ; overscan height
-VB_H            equ #30                ; vertical blank height 
+VB_H            equ #30                ; vertical blank height -> 33 or 30 idk
 
 BEAR_H          equ #15                ; bear sprite height
 BEAR_F          equ #15                ; Number of frames in the bear animation 0, set to 15 and 3xlsr for faster 
@@ -14,9 +14,7 @@ BEAR_F          equ #15                ; Number of frames in the bear animation 
                 seg.u vars             ; uninitialized segment
                 org $80                ; origin set at base of ram
                 
-pf_ptr		.word	; pointer to playfield data
-pf_count	.byte	; lines left in this playfield segment
-temp		.byte	; temporary
+pf_count	.byte			; lines left in playfield segment
 
 p0_y            .byte                   ; 1 byte - player 0 y pos
 p1_y            .byte                   ; player 1 y pos
@@ -26,12 +24,10 @@ tp0_y           .byte                   ; temporary player 0 y pos
 tp1_y           .byte                   ; temporary player 1 y pos
 
 bear_frame      .byte                   ; current frame of bear animation
-bearPtrP0       ds 2			; 2 bytes, points at which frame 
-bearPtrP1       ds 2			
+bearPtr	        ds 2			; 2 bytes, points at which frame 		
 
                 seg main               
                 org $F000
-
 
 start           CLEAN_START            
 
@@ -48,12 +44,12 @@ start           CLEAN_START
                 lda #$96
                 sta COLUP1             ; set the P1 color
                 
-                lda #165	       ; initial y pos of p0 and p1
+                lda #215	       ; initial y pos of p0 and p1
                 sta p0_y               
                 sta p1_y                
-                lda #70
+                lda #20
                 sta p0_x               ; initial x pos of p0
-                lda #110
+                lda #150
                 sta p1_x               ; initial x pos of p1 
                               
 
@@ -92,35 +88,25 @@ vblank          sta WSYNC
                 ; it guarantees a constant switch between 0-7 being frame 0 and 8-15 being frame 1, bc of the x3 lsr
                 
                 lda bear_pMSB,x		; pointer for the p0
-                sta bearPtrP0+1 
-
+                sta bearPtr+1 
                 lda bear_pLSB,x       
-                sta bearPtrP0
-
-                lda bear_pMSB,x		; pointer for the p1
-                sta bearPtrP1+1      
-
-                lda bear_pLSB,x       
-                sta bearPtrP1                                  
+                sta bearPtr
+                                
 ; vblank -> added all the bear graphics to their registers 
-
 bearDone        lda p0_y               
                 sta tp0_y             
-
                 lda p1_y             
                 sta tp1_y            
 
-                lda #PF_H              
-                sta pf_count 
+                ldx #255
+                ldy #PF_H
+                sty pf_count
                 
                 lda #0
-                ;sta WSYNC
                 sta VBLANK             ; turn on the beam
 
-		ldx #0
-kernel          ;sta WSYNC
-		lda pf_count
-                and #%111              
+kernel          lda pf_count
+                and #%11              
                 bne drawBears            
                 inx                                     
                 
@@ -131,7 +117,8 @@ drawBears	lda #BEAR_H            ; load height of sprite
                 lda #0                                   
 	
 .draw_p0        tay                    
-                lda (bearPtrP0),y      ; indirect mode bc () -> pull graphic from pointer
+                lda (bearPtr),y      ; indirect mode bc () -> pull graphic from pointer
+                sta WSYNC   
                 sta GRP0  
                 
                 lda #BEAR_H            ; load height of sprite
@@ -141,7 +128,8 @@ drawBears	lda #BEAR_H            ; load height of sprite
                 lda #0           
 
 .draw_p1        tay                    
-                lda (bearPtrP1),y 
+                lda (bearPtr),y                 
+               	sta WSYNC
                 sta GRP1 
 		
                 lda PF0_data,x         
@@ -154,7 +142,7 @@ drawBears	lda #BEAR_H            ; load height of sprite
                 dec pf_count
                 bne kernel    
 
-                ;sta WSYNC                                                                     
+                sta WSYNC                                                                     
                 
 ; kernel end here
 	
@@ -189,9 +177,8 @@ bear_pLSB     	.byte <bear_f0         ; LSB
 bear_pMSB     	.byte >bear_f0         ; MSB
 		.byte >bear_f1
                 
-; Read joystick movement and apply to player 0
+; Read joystick movement
 moveJoystick
-; Move vertically
 ; (up and down are actually reversed since ypos starts at bottom)
                 ldx p0_y
                 lda #%00100000	;Up?
@@ -208,8 +195,7 @@ moveJoystick
                 bcs .SkipMoveDown
                 inx
 .SkipMoveDown
-                stx p0_y
-        ; Move horizontally
+                stx p0_y 
                 ldx p0_x
                 lda #%01000000	;Left?
                 bit SWCHA
@@ -265,34 +251,32 @@ moveJoystick1
                 rts		;return to caller               
                                                
 PF0_data
-                 .byte #%11110000       ;<- first ONLY 4 BITS AT MSB ARE READ
-                 .byte #%00010000
-                 .byte #%00010000		
-                 .byte #%00010000
+                 .byte #%11110000       
                  .byte #%11110000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
+                 .byte #%01110000		
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%00110000
+                 .byte #%01110000
                  .byte #%11110000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%11110000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%11110000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%11110000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%00010000
-                 .byte #%11110000       ;<- last
+                 .byte #%11110000       
 
 PF1_data
-                 .byte #%11111111       ;<- first ALL 8 BITS
+                 .byte #%11111111       
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
@@ -300,6 +284,13 @@ PF1_data
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
+                 .byte #%00100000
+                 .byte #%00100000
+                 .byte #%00100000
+                 .byte #%00100000
+                 .byte #%00100000
+                 .byte #%00100000
+                 .byte #%00100000
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
@@ -307,43 +298,32 @@ PF1_data
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%00000000
-                 .byte #%11111111       ;<- last
+                 .byte #%11111111       
 
 PF2_data
-                 .byte #%11111111       ;<- first ALL 8 BITS
+                 .byte #%11111111       
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
+                 .byte #%00100000
+                 .byte #%00110000
+                 .byte #%00001001
+                 .byte #%00000101
+                 .byte #%00000011
+                 .byte #%11000000
+                 .byte #%11000000
+                 .byte #%11000000
+                 .byte #%11000000
                  .byte #%00000000
-                 .byte #%00000001
-                 .byte #%00000001
-                 .byte #%00000001
-                 .byte #%00000000
-                 .byte #%10000000
-                 .byte #%10000000
-                 .byte #%10000000
-                 .byte #%10000000
-                 .byte #%10000000
-                 .byte #%10000000
-                 .byte #%00000000
-                 .byte #%00000001
-                 .byte #%00000001
-                 .byte #%00000001
-                 .byte #%00000001
-                 .byte #%00000000
+                 .byte #%00000011
+                 .byte #%00000101
+                 .byte #%00001001
+                 .byte #%00110000
+                 .byte #%00100000
                  .byte #%00000000
                  .byte #%00000000
                  .byte #%00000000
-                 .byte #%11111111       ;<- last                           
+                 .byte #%11111111                                  
 
 bear_f0         .byte $0            
                 .byte %01000010
@@ -378,7 +358,6 @@ bear_f1        	.byte $0
                 .byte %01000010
                 .byte %11111111
                 .byte %11000011
-     
                 
 
                  org $FFFA
