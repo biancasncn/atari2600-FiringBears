@@ -59,6 +59,9 @@ start           CLEAN_START
 nextFrame       VERTICAL_SYNC
 		sta WSYNC  
                 
+vblank          ldx #43 
+                stx TIM64T
+                
                 lda p0_x
                 ldx #0                 ; P0
                 jsr setHorizPos        ; set the initial course position of the player 0 
@@ -81,10 +84,7 @@ nextFrame       VERTICAL_SYNC
 		sta NUSIZ1
                 
                 sta WSYNC	       ; NEED wsync and hmove, so scanline processes left/right movement correctly
-                sta HMOVE	       ; if commented out, horizontal movements will be staggered                                                                      
-                              
-vblank          ldx #35 
-                stx TIM64T
+                sta HMOVE	       ; if commented out, horizontal movements will be staggered
                
                 ; create a pointer to the bear graphic instead of pointing directy to it
                 inc bear_frame      
@@ -135,7 +135,7 @@ drawBears	lda #BEAR_H            ; load height of sprite
 	
 .draw_p0        tay                    
                 lda (bearPtr),y      ; indirect mode bc () -> pull graphic from pointer
-                sta WSYNC   
+                ;sta WSYNC   
                 sta GRP0  
                 
                 lda #BEAR_H            ; load height of sprite
@@ -160,8 +160,8 @@ drawBears	lda #BEAR_H            ; load height of sprite
                 
                 dec pf_count
                 bne kernel    
-
-                sta WSYNC 
+                
+                ;sta WSYNC 
 ; kernel end here
 	
 pf_end		sta WSYNC
@@ -171,10 +171,10 @@ pf_end		sta WSYNC
 overscan        ldx #35
                 stx TIM64T
                 
+                jsr moveJoystick
+                
 timer		ldx INTIM
 		bne timer
-                
-                jsr moveJoystick
 
                 jmp nextFrame          ; jump back up to start the next frame
 
@@ -191,7 +191,7 @@ setHorizPos     sta WSYNC              ; start a new line
                 sta HMP0,x             ; set fine offset
                	rts                    ; return to caller
                 
-setHorizPosM    sta WSYNC              ; start a new line
+setHorizPosM    sta WSYNC              ; horiz postion for the missiles
                 sec	               ; set carry flag
 		cpx #1
                 beq .divLoopM1	       ; if m1, branch to m1 loop
@@ -208,7 +208,7 @@ setHorizPosM    sta WSYNC              ; start a new line
                 asl                     
                 sta RESMP0,x           ; fix coarse position to player
                 sta HMM0,x             ; set fine offset
-               	rts                    ; return to caller               
+               	rts                    ; return to caller                                 
 
 bear_pLSB     	.byte <bear_f0         ; LSB
               	.byte <bear_f1
@@ -221,9 +221,6 @@ moveJoystick	; Read joystick movement
 		lda #$76               ; color index set to default col
                 bit INPT4              ; check player 1 button
                 bmi .noPress           ; branch if minus. D7 will be 0 if button is pressed
-                ldy p1_y
-                cpy pf_count
-                bne .move
                 lda #%00000010
                 sta ENAM0
                 lda #$B0
@@ -238,20 +235,19 @@ moveJoystick	; Read joystick movement
                 lda #$40
 
 .noPress1	sta COLUP1             ; set the P1 color
-
-.move; (up and down are actually reversed since ypos starts at bottom)
+		; (up and down are actually reversed since ypos starts at bottom)
                 ldx p0_y
                 lda #%00100000	
                 bit SWCHA
                 bne .SkipMoveUp
-                cpx #183
+                cpx #176
                 bcc .SkipMoveUp
                 dex
                 
 .SkipMoveUp	lda #%00010000	
                 bit SWCHA 
                 bne .SkipMoveDown
-                cpx #250
+                cpx #255
                 bcs .SkipMoveDown
                 inx
                 
@@ -272,20 +268,20 @@ moveJoystick	; Read joystick movement
                 inx
                 
 .SkipMoveRight	stx p0_x
-
+		
 ; move joystick for player 1
                 ldx p1_y
                 lda #%00000010	
                 bit SWCHA
                 bne .SkipMoveUp1
-                cpx #183
+                cpx #176
                 bcc .SkipMoveUp1
                 dex
                 
 .SkipMoveUp1	lda #%00000001	
                 bit SWCHA 
                 bne .SkipMoveDown1
-                cpx #250
+                cpx #255
                 bcs .SkipMoveDown1
                 inx
                 
