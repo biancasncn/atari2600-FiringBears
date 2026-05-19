@@ -57,9 +57,7 @@ start           CLEAN_START
                 sta p1_x               ; initial x pos of p1                                              
 
 nextFrame       VERTICAL_SYNC
-		sta WSYNC
-              
-                jsr moveJoystick              
+		sta WSYNC  
                 
                 lda p0_x
                 ldx #0                 ; P0
@@ -87,7 +85,7 @@ nextFrame       VERTICAL_SYNC
                               
 vblank          ldx #35 
                 stx TIM64T
-
+               
                 ; create a pointer to the bear graphic instead of pointing directy to it
                 inc bear_frame      
                 lda bear_frame     
@@ -129,22 +127,22 @@ kernel          lda pf_count
                 
 drawBears	lda #BEAR_H            ; load height of sprite
                 sec                    ; set carry flag
-                inc tp0_y
-                sbc tp0_y
-                ;isb tp0_y              ; does inc tp0_y -> sbc tp0_y in one go
+                ;inc tp0_y
+                ;sbc tp0_y
+                isb tp0_y              ; does inc tp0_y -> sbc tp0_y in one go
                 bcs .draw_p0           
                 lda #0                                   
 	
 .draw_p0        tay                    
                 lda (bearPtr),y      ; indirect mode bc () -> pull graphic from pointer
-                ;sta WSYNC   
+                sta WSYNC   
                 sta GRP0  
                 
                 lda #BEAR_H            ; load height of sprite
                 sec 
-                inc tp1_y
-                sbc tp1_y
-                ;isb tp1_y              ; increase tp1_y subtract from accumulator
+                ;inc tp1_y
+                ;sbc tp1_y
+                isb tp1_y              ; increase tp1_y subtract from accumulator
                 bcs .draw_p1           
                 lda #0           
 
@@ -170,11 +168,13 @@ pf_end		sta WSYNC
 		lda #%10                
                 sta VBLANK             ; turn off the beam              
                             
-overscan        ldx #34
+overscan        ldx #35
                 stx TIM64T
                 
 timer		ldx INTIM
 		bne timer
+                
+                jsr moveJoystick
 
                 jmp nextFrame          ; jump back up to start the next frame
 
@@ -229,7 +229,6 @@ moveJoystick	; Read joystick movement
                 lda #$B0
 
 .noPress	sta COLUP0             ; set the P0 color
-		;sta RESMP0
 
 		lda #$96               
                 bit INPT5              ; player 2 button
@@ -239,7 +238,6 @@ moveJoystick	; Read joystick movement
                 lda #$40
 
 .noPress1	sta COLUP1             ; set the P1 color
-		;sta RESMP1
 
 .move; (up and down are actually reversed since ypos starts at bottom)
                 ldx p0_y
