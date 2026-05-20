@@ -5,13 +5,14 @@
                 include "macro.h"
                 include "xmacro.h"
 
-PF_H            equ #96                ; playfield height - playfied data x 4 -> 4LK
+PF_H            equ #96                	; playfield height - playfied data x 4 -> 4LK
 
-BEAR_H          equ #15                ; bear sprite height
-BEAR_F          equ #15                ; Number of frames in the bear animation 0, set to 15 and 3xlsr for faster 
+BEAR_H          equ #15                	; bear sprite height
+BEAR_F          equ #15                	; Number of frames in the bear animation 0, set to 15 and 3xlsr for faster
+MISS_H		equ #3			; missile height
 
-                seg.u vars             ; uninitialized segment
-                org $80                ; origin set at base of ram
+                seg.u vars             	; uninitialized segment
+                org $80                	; origin set at base of ram
                 
 pf_count	.byte			; lines left in playfield segment
 
@@ -25,10 +26,14 @@ tp1_y           .byte                   ; temporary player 1 y pos
 bear_frame      .byte                   ; current frame of bear animation
 bearPtr	        .byte			; points at which frame to be at at
 
-m0_y		.byte
-m1_y		.byte
 m0_x		.byte
 m1_x		.byte
+m0_active	.byte
+m1_active	.byte
+tm0_y       	.byte
+tm1_y       	.byte
+enam0_r     	.byte          ; ram copy of enam0
+enam1_r     	.byte          ; ram copy of enam1
 
                 seg main               
                 org $F000
@@ -85,7 +90,7 @@ vblank          ldx #43
                 
                 sta WSYNC	       ; NEED wsync and hmove, so scanline processes left/right movement correctly
                 sta HMOVE	       ; if commented out, horizontal movements will be staggered
-               
+                
                 ; create a pointer to the bear graphic instead of pointing directy to it
                 inc bear_frame      
                 lda bear_frame     
@@ -106,7 +111,12 @@ vblank          ldx #43
                 lda p0_y               
                 sta tp0_y             
                 lda p1_y             
-                sta tp1_y
+                sta tp1_y     
+                
+                lda p0_y
+                sta tm0_y
+                lda p1_y
+                sta tm1_y
                 
                 ldx #255
                 ldy #PF_H
@@ -120,46 +130,60 @@ bearDone        lda INTIM
                 sta WSYNC
                 sta VBLANK             ; turn on the beam
 
-kernel          lda pf_count
-                and #%11              
-                bne drawBears            
-                inx                                     
-                
-drawBears	lda #BEAR_H            ; load height of sprite
-                sec                    ; set carry flag
-                ;inc tp0_y
-                ;sbc tp0_y
-                isb tp0_y              ; does inc tp0_y -> sbc tp0_y in one go
-                bcs .draw_p0           
-                lda #0                                   
-	
-.draw_p0        tay                    
-                lda (bearPtr),y      ; indirect mode bc () -> pull graphic from pointer
-                ;sta WSYNC   
-                sta GRP0  
-                
-                lda #BEAR_H            ; load height of sprite
-                sec 
-                ;inc tp1_y
-                ;sbc tp1_y
-                isb tp1_y              ; increase tp1_y subtract from accumulator
-                bcs .draw_p1           
-                lda #0           
+kernel          sta WSYNC
 
-.draw_p1        tay                    
-                lda (bearPtr),y                 
-               	sta WSYNC
-                sta GRP1 
-		
+                ldx #%00000010
+                ldy #0
+
+                stx enam0_r
+                stx enam1_r
+
+                inc tm0_y
+                beq .draw_m0
+                sty enam0_r
+.draw_m0
+                inc tm1_y
+                beq .draw_m1
+                sty enam1_r
+.draw_m1
+
+                ; P0 sprite
+                lda #BEAR_H
+                sec
+                isb tp0_y
+                bcs .draw_p0
+                lda #0
+.draw_p0        tay
+                lda (bearPtr),y
+                sta GRP0
+
+                ; P1 sprite
+                lda #BEAR_H
+                sec
+                isb tp1_y
+                bcs .draw_p1
+                lda #0
+.draw_p1        tay
+                lda (bearPtr),y
+                sta GRP1
+
+                ; apply missile enables
+                lda enam0_r
+                and m0_active          ; gate by button press
+                sta ENAM0
+                lda enam1_r
+                and m1_active          ; gate by button press
+                sta ENAM1
+                
                 lda PF0_data,x         
                 sta PF0                
                 lda PF1_data,x        
                 sta PF1                
                 lda PF2_data,x         
                 sta PF2
-                
+
                 dec pf_count
-                bne kernel    
+                bne kernel   
                 
                 ;sta WSYNC 
 ; kernel end here
@@ -218,11 +242,11 @@ bear_pMSB     	.byte >bear_f0         ; MSB
                 
 moveJoystick	; Read joystick movement
 ; reading the input button stuff
-		lda #$76               ; color index set to default col
-                bit INPT4              ; check player 1 button
-                bmi .noPress           ; branch if minus. D7 will be 0 if button is pressed
-                lda #%00000010
-                sta ENAM0
+		lda #$76               	; color index set to default col
+                bit INPT4              	; check player 1 button
+                bmi .noPress           	; branch if minus, D7 will be 0 if button is pressed
+                lda #%10
+            	sta m0_active
                 lda #$B0
 
 .noPress	sta COLUP0             ; set the P0 color
@@ -230,8 +254,8 @@ moveJoystick	; Read joystick movement
 		lda #$96               
                 bit INPT5              ; player 2 button
                 bmi .noPress1 
-                lda #%00000010
-                sta ENAM1
+                lda #%10
+            	sta m1_active
                 lda #$40
 
 .noPress1	sta COLUP1             ; set the P1 color
